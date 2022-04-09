@@ -1,19 +1,17 @@
 locals {
-  nat_gateway_count = 1
+  nat_gateway_count = var.nat_gateway_count
+  internet_gateway_count = var.internet_gateway_count
 }
 
-resource aws_subnet private {
+resource aws_subnet default {
   # private_subnet에 개수에 따라 반복
-  count = length(var.private_subnets) > 0 ? length(var.private_subnets) : 0
-
+  count = length(var.cidrs) > 0 ? length(var.cidrs) : 0
   vpc_id            = var.vpc_id
-  cidr_block        = var.private_subnets[count.index]
+  cidr_block        = var.cidrs[count.index]
   availability_zone = element(var.azs, count.index)
-
   tags = {
     "Name" = format(
-        "%s-%s-%s",
-        var.environment_name,
+        "%s-%s",
         var.name,
         element(var.azs, count.index)
       )
@@ -21,69 +19,68 @@ resource aws_subnet private {
 }
 
 ################
+# public routes
+################
+resource aws_route_table public {
+  count = local.internet_gateway_count
+  vpc_id = var.vpc_id
+  tags = {
+    "Name" = format("%s-%s", var.name, element(var.azs, count.index))
+  }
+}
+
+#########################
+# route table association
+#########################
+
+resource aws_route_table_association public {
+  count = local.internet_gateway_count > 0 ? (length(var.cidrs) > 0 ? length(var.cidrs) : 0) : 0
+  subnet_id = element(aws_subnet.default.*.id, count.index)
+  route_table_id = element(aws_route_table.public.*.id, count.index)
+}
+
+##################
+# internet gateway
+##################
+
+resource aws_route internet_gateway {
+  count = local.internet_gateway_count
+  route_table_id = element(aws_route_table.public.*.id, count.index)
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id = element(var.internet_gateway_ids, count.index)
+  timeouts {
+    create = "5m"
+  }
+}
+
+################
 # private routes
 ################
 resource aws_route_table private {
-  count = local.nat_gateway_count 
-
+  count = local.nat_gateway_count
   vpc_id = var.vpc_id
-
   tags = {
-    "Name" = format("%s-%s-%s", var.environment_name, var.name, element(var.azs, count.index))
-  } 
+    "Name" = format("%s-%s", var.name, element(var.azs, count.index))
+  }
 }
 
 #########################
 # route table association
 #########################
 resource aws_route_table_association private {
-  count = length(var.private_subnets) > 0 ? length(var.private_subnets) : 0
-
-  subnet_id = element(aws_subnet.private.*.id, count.index)
+  count = local.nat_gateway_count > 0 ? (length(var.cidrs) > 0 ? length(var.cidrs) : 0 ) : 0
+  subnet_id = element(aws_subnet.default.*.id, count.index)
   route_table_id = element(aws_route_table.private.*.id, count.index)
 }
 
 #############
 # nat gateway
 #############
-
-# locals {
-#   reuse_nat_ips is default false
-#   nat_gateway_ips = split(
-#     ",",
-#     var.reuse_nat_ips ? join(",", var.external_nat_ip_ids) : join(",", aws_eip.nat.*.id),
-#   )
-#   nat_gateway_count = length(var.azs)
-# }
-
-# resource aws_eip nat {
-#   count = local.nat_gateway_count
-
-#   vpc   = true
-
-#   tags = {
-#     "Name" = format("%s-%s", var.name, element(var.azs, count.index))
-#   }
-# }
-
-# resource aws_nat_gateway this {
-#   count = local.nat_gateway_count
-
-#   allocation_id = element(local.nat_gateway_ips, count.index)
-#   subnet_id = element(var.public_subnets_ids, count.index)
-
-#   tags = {
-#     "Name" = format("%s-%s", var.name, element(var.azs, count.index))
-#   }
-# }
-
 resource aws_route private_nat_gateway {
-  count = local.nat_gateway_count 
-
+  count = local.nat_gateway_count
   route_table_id = element(aws_route_table.private.*.id, count.index)
   destination_cidr_block = "0.0.0.0/0"
   nat_gateway_id = element(var.nat_gateway_ids, count.index)
-
   timeouts {
     create = "5m"
   }
@@ -92,14 +89,12 @@ resource aws_route private_nat_gateway {
 ######################
 # Private Network ACLs
 ######################
-resource aws_network_acl private {
-  count = length(var.private_subnets) > 0 ? 1 : 0
-
+resource aws_network_acl default {
+  count = length(var.cidrs) > 0 ? 1 : 0
   vpc_id = var.vpc_id
-  subnet_ids = aws_subnet.private.*.id
-
+  subnet_ids = aws_subnet.default.*.id
   tags = {
-    "Name" = format("%s-%s", var.environment_name, var.name)
+    "Name" = format("%s", var.name)
   }
 }
 

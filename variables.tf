@@ -2,12 +2,18 @@ variable azs {
   type = list(string)
 }
 
-variable vpc_id {
-  description = "vpc_id"
-  type = string
+variable nat_gateway_count {
+  type = number
+  default = 0
 }
 
-variable environment_name {
+variable internet_gateway_count {
+  type = number
+  default = 0
+}
+
+variable vpc_id {
+  description = "vpc_id"
   type = string
 }
 
@@ -16,12 +22,7 @@ variable name {
   type = string
 }
 
-variable public_subnets_ids {
-  description = "list of id of public subnet"
-  type = list(string)
-}
-
-variable private_subnets {
+variable cidrs {
   type = list(string)
 }
 
@@ -32,6 +33,12 @@ variable reuse_nat_ips {
 
 variable nat_gateway_ids {
   type = list(string)
+  default = []
+}
+
+variable internet_gateway_ids {
+  type = list(string)
+  default = []
 }
 
 variable external_nat_ip_ids {
@@ -39,12 +46,12 @@ variable external_nat_ip_ids {
   default = []
 }
 
-variable private_inbound_acl_rules {
+variable inbound_acl_rules {
   type    = list(map(string))
   default = [{}]
 }
 
-variable private_outbound_acl_rules {
+variable outbound_acl_rules {
   type    = list(map(string))
   default = [{}]
 }

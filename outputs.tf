@@ -1,9 +1,8 @@
-output private_subnets {
+output subnets_ids {
   description = "List of IDs of the VPC"
-  value       = aws_subnet.private.*.id
+  value       = aws_subnet.default.*.id
 }
-
-output private_route_table_ids {
+output route_table_ids {
   description = "List of IDs of private route tables"
-  value       = aws_route_table.private.*.id
+  value       = var.nat_gateway_count > 0 ? aws_route_table.private.*.id : aws_route_table.public.*.id
 }
